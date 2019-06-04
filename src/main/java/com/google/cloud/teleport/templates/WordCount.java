@@ -18,30 +18,16 @@ package com.google.cloud.teleport.templates;
 
 
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
-import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.fs.MatchResult;
-import org.apache.beam.sdk.metrics.Counter;
-import org.apache.beam.sdk.metrics.Metrics;
-import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.options.ValueProvider;
-import org.apache.beam.sdk.transforms.Count;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.MapElements;
-import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.SimpleFunction;
 import org.apache.beam.sdk.util.GcsUtil;
 import org.apache.beam.sdk.util.gcsfs.GcsPath;
-import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollection;
-import org.apache.kafka.common.protocol.types.Field;
 
 import java.io.BufferedInputStream;
-import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
@@ -72,7 +58,7 @@ public class WordCount {
         ZipEntry ze = zis.getNextEntry();
         while(ze!=null){
           LOG.info("Unzipping File {}",ze.getName());
-          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://bucket_location/" + ze.getName()), getType(ze.getName()));
+          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://demo-uspto-bulkdata/trial" + ze.getName()), getType(ze.getName()));
           OutputStream os = Channels.newOutputStream(wri);
           int len;
           while((len=zis.read(buffer))>0){
@@ -110,7 +96,7 @@ public class WordCount {
     PipelineOptions options = PipelineOptionsFactory.create();
     Pipeline pipeline = Pipeline.create(options);
 
-     pipeline.apply(FileIO.match().filepattern("INPUT FILE"))
+     pipeline.apply(FileIO.match().filepattern("gs://demo-uspto-bulkdata/bulkdata.uspto.gov/data/patent/grant/redbook/2002/20020122.ZIP"))
             .apply(ParDo.of(new UnzipFN()));
 
     pipeline.run().waitUntilFinish();
