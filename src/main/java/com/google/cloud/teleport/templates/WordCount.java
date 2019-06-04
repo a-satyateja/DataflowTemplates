@@ -46,12 +46,13 @@ public class WordCount {
     private long filesUnzipped=0;
     @ProcessElement
     public void processElement(ProcessContext c){
-      MatchResult.Metadata p = c.element();
+//      MatchResult.Metadata p = c.element();
+      String p = "gs://demo-uspto-bulkdata/bulkdata.uspto.gov/data/patent/grant/redbook/2002/20020122.ZIP";
       GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-        SeekableByteChannel sek = u.open(GcsPath.fromUri(p.toString()));
+        SeekableByteChannel sek = u.open(GcsPath.fromUri(p));
         InputStream is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
         ZipInputStream zis = new ZipInputStream(bis);
