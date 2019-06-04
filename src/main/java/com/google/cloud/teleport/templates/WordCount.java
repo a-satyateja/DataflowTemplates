@@ -18,7 +18,10 @@ package com.google.cloud.teleport.templates;
 
 
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.TextIO;
+import org.apache.beam.sdk.io.fs.MatchResult;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.Description;
@@ -31,88 +34,85 @@ import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SimpleFunction;
+import org.apache.beam.sdk.util.GcsUtil;
+import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.kafka.common.protocol.types.Field;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+import static com.google.cloud.teleport.templates.DLPTextToBigQueryStreaming.LOG;
 /**
  * An template that counts words in Shakespeare.
  */
 public class WordCount {
 
-  static class ExtractWordsFn extends DoFn<String, String> {
-    private final Counter emptyLines = Metrics.counter(ExtractWordsFn.class, "emptyLines");
-
+  public static class UnzipFN extends DoFn< MatchResult.Metadata,Long>{
+    private long filesUnzipped=0;
     @ProcessElement
-    public void processElement(ProcessContext c) {
-      if (c.element().trim().isEmpty()) {
-        emptyLines.inc();
-      }
+    public void processElement(ProcessContext c){
+      MatchResult.Metadata p = c.element();
+      GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
+      GcsUtil u = factory.create(c.getPipelineOptions());
+      byte[] buffer = new byte[100000000];
+      try{
+        SeekableByteChannel sek = u.open(GcsPath.fromUri(p.toString()));
+        InputStream is = Channels.newInputStream(sek);
+        BufferedInputStream bis = new BufferedInputStream(is);
+        ZipInputStream zis = new ZipInputStream(bis);
+        ZipEntry ze = zis.getNextEntry();
+        while(ze!=null){
+          LOG.info("Unzipping File {}",ze.getName());
+          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://bucket_location/" + ze.getName()), getType(ze.getName()));
+          OutputStream os = Channels.newOutputStream(wri);
+          int len;
+          while((len=zis.read(buffer))>0){
+            os.write(buffer,0,len);
+          }
+          os.close();
+          filesUnzipped++;
+          ze=zis.getNextEntry();
 
-      // Split the line into words.
-      String[] words = c.element().split("[^a-zA-Z']+");
 
-      // Output each word encountered into the output PCollection.
-      for (String word : words) {
-        if (!word.isEmpty()) {
-          c.output(word);
         }
+        zis.closeEntry();
+        zis.close();
+
+      }
+      catch(Exception e){
+        e.printStackTrace();
+      }
+      c.output(filesUnzipped);
+      System.out.println(filesUnzipped+"FilesUnzipped");
+      LOG.info("FilesUnzipped");
+    }
+
+    private String getType(String fName){
+      if(fName.endsWith(".zip")){
+        return "application/x-zip-compressed";
+      }
+      else {
+        return "text/plain";
       }
     }
   }
 
-  /** A SimpleFunction that converts a Word and Count into a printable string. */
-  public static class FormatAsTextFn extends SimpleFunction<KV<String, Long>, String> {
-    @Override
-    public String apply(KV<String, Long> input) {
-      return input.getKey() + ": " + input.getValue();
-    }
-  }
+  public static void main(String... args) {
+    PipelineOptions options = PipelineOptionsFactory.create();
+    Pipeline pipeline = Pipeline.create(options);
 
-  /**
-   * A PTransform that converts a PCollection containing lines of text into a PCollection of
-   * formatted word counts.
-   */
-  public static class CountWords extends PTransform<PCollection<String>,
-        PCollection<KV<String, Long>>> {
-    @Override
-    public PCollection<KV<String, Long>> expand(PCollection<String> lines) {
+     pipeline.apply(FileIO.match().filepattern("INPUT FILE"))
+            .apply(ParDo.of(new UnzipFN()));
 
-      // Convert lines of text into individual words.
-      PCollection<String> words = lines.apply(
-          ParDo.of(new ExtractWordsFn()));
-
-      // Count the number of times each word occurs.
-      PCollection<KV<String, Long>> wordCounts =
-          words.apply(Count.<String>perElement());
-
-      return wordCounts;
-    }
-  }
-
-  /**
-   * Options supported by {@link com.google.cloud.teleport.templates.WordCount}.
-   *
-   * <p>Inherits standard configuration options.
-   */
-  public interface WordCountOptions extends PipelineOptions {
-    @Description("Path of the file to read from")
-    ValueProvider<String> getInputFile();
-    void setInputFile(ValueProvider<String> value);
-
-    @Description("Path of the file to write to")
-    ValueProvider<String> getOutput();
-    void setOutput(ValueProvider<String> value);
-  }
-
-  public static void main(String[] args) {
-    WordCountOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
-      .as(WordCountOptions.class);
-    Pipeline p = Pipeline.create(options);
-    p.apply("ReadLines", TextIO.read().from(options.getInputFile()))
-     .apply(new CountWords())
-     .apply(MapElements.via(new FormatAsTextFn()))
-     .apply("WriteCounts", TextIO.write().to(options.getOutput()));
-
-    p.run();
+    pipeline.run().waitUntilFinish();
   }
 }
