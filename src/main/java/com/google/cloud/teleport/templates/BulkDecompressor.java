@@ -351,7 +351,7 @@ public class BulkDecompressor {
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-        SeekableByteChannel sek = u.open(GcsPath.fromUri("gs://dataninja-bucket/zip_files/DTDS.zip"));
+        SeekableByteChannel sek = u.open(GcsPath.fromUri("gs://uspto_data/201.zip"));
         InputStream is;
         is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
