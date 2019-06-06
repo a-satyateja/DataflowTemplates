@@ -185,6 +185,9 @@ public class BulkDecompressor {
    * @param args The command-line args passed by the executor.
    */
   public static void main(String[] args) {
+    System.out.println("test test test");
+    LOG.info("test test test ");
+    LOG.info("main main main ");
 
     Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
 
