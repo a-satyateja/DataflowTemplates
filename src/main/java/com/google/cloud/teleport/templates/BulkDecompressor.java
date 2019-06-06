@@ -346,7 +346,7 @@ public class BulkDecompressor {
 
     @ProcessElement
     public void processElement(ProcessContext c){
-      String p = c.element().resourceId().getFilename();
+      String p = c.element().resourceId().getScheme();
       GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
