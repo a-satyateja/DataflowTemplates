@@ -355,6 +355,8 @@ public class BulkDecompressor {
         ZipInputStream zis = new ZipInputStream(bis);
         ZipEntry ze = zis.getNextEntry();
         while(ze!=null){
+          System.out.println("test test test");
+          LOG.info("test test test ", this.destinationLocation);
           LoggerFactory.getLogger("TTTTTTTTTTTTTTTT").info("Unzipping File {}",ze.getName());
           WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation+ ze.getName()), getType(ze.getName()));
           OutputStream os = Channels.newOutputStream(wri);
