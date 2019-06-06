@@ -351,7 +351,7 @@ public class BulkDecompressor {
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-        SeekableByteChannel sek = u.open(GcsPath.fromUri("gs://uspto_data/201.zip"));
+        SeekableByteChannel sek = u.open(GcsPath.fromUri("gs://dataninja-bucket/zip_files/20020101/DESIGN/*.ZIP"));
         InputStream is;
         is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
@@ -361,7 +361,7 @@ public class BulkDecompressor {
 //          System.out.println("test test test");
           LOG.info("test test test ", this.destinationLocation);
           LoggerFactory.getLogger("TTTTTTTTTTTTTTTT").info("Unzipping File {}",ze.getName());
-          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://dataninja-bucket/zip_files/"+ ze.getName()), getType(ze.getName()));
+          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://dataninja-bucket/zip_files/unzip/"+ ze.getName()), getType(ze.getName()));
           OutputStream os = Channels.newOutputStream(wri);
           int len;
           while((len=zis.read(buffer))>0){
