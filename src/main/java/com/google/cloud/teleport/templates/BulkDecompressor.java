@@ -46,11 +46,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.util.MimeTypes;
-import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollectionTuple;
-import org.apache.beam.sdk.values.TupleTag;
-import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.beam.sdk.values.TypeDescriptors;
+import org.apache.beam.sdk.values.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.QuoteMode;
@@ -210,47 +206,12 @@ public class BulkDecompressor {
     Pipeline pipeline = Pipeline.create(options);
 
     // Run the pipeline over the work items.
-    PCollectionTuple decompressOut =
+    PCollection<String> decompressOut =
         pipeline
             .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
             .apply(
                 "DecompressFile(s)",
-                ParDo.of(new Decompress(options.getOutputDirectory()))
-                    .withOutputTags(DECOMPRESS_MAIN_OUT_TAG, TupleTagList.of(DEADLETTER_TAG)));
-
-    decompressOut
-        .get(DEADLETTER_TAG)
-        .apply(
-            "FormatErrors",
-            MapElements.into(TypeDescriptors.strings())
-                .via(
-                    kv -> {
-                      StringWriter stringWriter = new StringWriter();
-                      try {
-                        CSVPrinter printer =
-                            new CSVPrinter(
-                                stringWriter,
-                                CSVFormat.DEFAULT
-                                    .withEscape('\\')
-                                    .withQuoteMode(QuoteMode.NONE)
-                                    .withRecordSeparator('\n')
-                            );
-                        printer.printRecord(kv.getKey(), kv.getValue());
-                      } catch (IOException e) {
-                        throw new RuntimeException(e);
-                      }
-
-                      return stringWriter.toString();
-                    }))
-
-        // We don't expect error files to be large so we'll create a single
-        // file for ease of reprocessing by processes outside of Dataflow.
-        .apply(
-            "WriteErrorFile",
-            TextIO.write()
-                .to(options.getOutputFailureFile())
-                .withHeader("Filename,Error")
-                .withoutSharding());
+                ParDo.of(new Decompress(options.getOutputDirectory())));
 
     return pipeline.run();
   }

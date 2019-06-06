@@ -17,18 +17,18 @@
  */
 package com.google.cloud.teleport.templates;
 
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.StorageOptions;
 import org.apache.beam.sdk.Pipeline;
-
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.*;
+import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.util.GcsUtil;
 import org.apache.beam.sdk.util.gcsfs.GcsPath;
-
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
@@ -183,12 +183,20 @@ public class WordCount {
 //  }
 
   public static void main(String[] args) {
+    try {
+      StorageOptions.Builder optionsBuilder = StorageOptions.newBuilder()
+              .setCredentials(ServiceAccountCredentials
+                      .fromStream(new FileInputStream("computeEngineSA.json")));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
     Pipeline p = Pipeline.create(
             PipelineOptionsFactory.fromArgs().withValidation().create());
     GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
     GcsUtil util = factory.create(p.getOptions());
     try{
-      List<GcsPath> gcsPaths = util.expand(GcsPath.fromUri("gs://demo-uspto-bulkdata/bulkdata.uspto.gov/data/patent/grant/redbook/2002/20020122.ZIP"));
+      List<GcsPath> gcsPaths = util.expand(GcsPath.fromUri("gs://uspto_cybris/cybris.ms-dev.zip"));
       List<String> paths = new ArrayList<String>();
 
       for(GcsPath gcsp: gcsPaths){
@@ -222,7 +230,7 @@ public class WordCount {
         ZipEntry ze = zis.getNextEntry();
         while(ze!=null){
           LoggerFactory.getLogger("TTTTTTTTTTTTTTTT").info("Unzipping File {}",ze.getName());
-          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://demo-uspto-bulkdata/" + ze.getName()), getType(ze.getName()));
+          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://uspto_cybris/" + ze.getName()), getType(ze.getName()));
           OutputStream os = Channels.newOutputStream(wri);
           int len;
           while((len=zis.read(buffer))>0){
