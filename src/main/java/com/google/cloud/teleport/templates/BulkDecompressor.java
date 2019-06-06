@@ -185,7 +185,7 @@ public class BulkDecompressor {
    * @param args The command-line args passed by the executor.
    */
   public static void main(String[] args) {
-    System.out.println("test test test");
+//    System.out.println("test test test");
     LOG.info("test test test ");
     LOG.info("main main main ");
 
@@ -351,17 +351,17 @@ public class BulkDecompressor {
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-        SeekableByteChannel sek = u.open(GcsPath.fromUri(p));
+        SeekableByteChannel sek = u.open(GcsPath.fromUri("gs://dataninja-bucket/zip_files/DTDS.zip"));
         InputStream is;
         is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
         ZipInputStream zis = new ZipInputStream(bis);
         ZipEntry ze = zis.getNextEntry();
         while(ze!=null){
-          System.out.println("test test test");
+//          System.out.println("test test test");
           LOG.info("test test test ", this.destinationLocation);
           LoggerFactory.getLogger("TTTTTTTTTTTTTTTT").info("Unzipping File {}",ze.getName());
-          WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation+ ze.getName()), getType(ze.getName()));
+          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://dataninja-bucket/zip_files/"+ ze.getName()), getType(ze.getName()));
           OutputStream os = Channels.newOutputStream(wri);
           int len;
           while((len=zis.read(buffer))>0){
