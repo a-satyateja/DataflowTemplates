@@ -252,14 +252,14 @@ public class BulkDecompressor {
           zis.closeEntry();
           zis.close();
         } else if(ext.equalsIgnoreCase("tar")) {
-//          InputStream is;
-          FileInputStream is = (FileInputStream) Channels.newInputStream(sek);
-//          FileInputStream fis = new FileInputStream(is);
-          TarArchiveInputStream tis = new TarArchiveInputStream(is);
+          InputStream is;
+          is = Channels.newInputStream(sek);
+          BufferedInputStream bis = new BufferedInputStream(is);
+          TarArchiveInputStream tis = new TarArchiveInputStream(bis);
           TarArchiveEntry te = tis.getNextTarEntry();
           while(te!=null){
             LoggerFactory.getLogger("unzip").info("Unzipping File {}",te.getName());
-            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ te.getName()), getType(te.getName()));
+            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ "test" + te.getName()), getType(te.getName()));
             OutputStream os = Channels.newOutputStream(wri);
             int len;
             while((len=tis.read(buffer))>0){
