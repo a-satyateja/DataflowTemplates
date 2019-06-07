@@ -232,7 +232,7 @@ public class BulkDecompressor {
   Check for zip or tar file types
  */
         String ext = FilenameUtils.getExtension(this.inputLocation.get());
-        if (ext == "zip") {
+        if (ext.equalsIgnoreCase("zip") ) {
           ZipInputStream zis = new ZipInputStream(bis);
           ZipEntry ze = zis.getNextEntry();
           while(ze!=null){
@@ -249,7 +249,7 @@ public class BulkDecompressor {
           }
           zis.closeEntry();
           zis.close();
-        } else if(ext == "tar") {
+        } else if(ext.equalsIgnoreCase("tar")) {
           TarArchiveInputStream tis = new TarArchiveInputStream(bis);
           TarArchiveEntry te = tis.getNextTarEntry();
           while(te!=null){
@@ -266,9 +266,6 @@ public class BulkDecompressor {
           }
           tis.close();
         }
-
-
-
       }
       catch(Exception e){
         e.printStackTrace();
@@ -279,6 +276,8 @@ public class BulkDecompressor {
     private String getType(String fName){
       if(fName.endsWith(".zip")){
         return "application/x-zip-compressed";
+      } else if(fName.endsWith(".tar")){
+        return "application/x-tar";
       }
       else {
         return "text/plain";
