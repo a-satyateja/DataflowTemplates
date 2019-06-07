@@ -191,19 +191,11 @@ public class BulkDecompressor {
 
     // Run the pipeline over the work items.
     PCollection<Long> decompressOut =
-<<<<<<< Updated upstream
         pipeline
             .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
             .apply(
                 "DecompressFile(s)",
                 ParDo.of(new DecompressNew(options.getInputFilePattern(), options.getOutputDirectory())));
-=======
-            pipeline
-                    .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
-                    .apply(
-                            "DecompressFile(s)",
-                            ParDo.of(new DecompressNew(options.getInputFilePattern(), options.getOutputDirectory())));
->>>>>>> Stashed changes
 
     return pipeline.run();
   }
@@ -236,18 +228,6 @@ public class BulkDecompressor {
         InputStream is;
         is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
-<<<<<<< Updated upstream
-        ZipInputStream zis = new ZipInputStream(bis);
-        ZipEntry ze = zis.getNextEntry();
-        while(ze!=null){
-          LOG.info("test test test ", this.destinationLocation);
-          LoggerFactory.getLogger("unzip").info("Unzipping File {}",ze.getName());
-          WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ ze.getName()), getType(ze.getName()));
-          OutputStream os = Channels.newOutputStream(wri);
-          int len;
-          while((len=zis.read(buffer))>0){
-            os.write(buffer,0,len);
-=======
 /*
   Check for zip or tar file types
  */
@@ -266,8 +246,6 @@ public class BulkDecompressor {
             os.close();
             filesUnzipped++;
             ze=zis.getNextEntry();
-
->>>>>>> Stashed changes
           }
           zis.closeEntry();
           zis.close();
@@ -285,7 +263,6 @@ public class BulkDecompressor {
             os.close();
             filesUnzipped++;
             te=tis.getNextTarEntry();
-
           }
           tis.close();
         }
