@@ -45,6 +45,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.util.GcsUtil;
 import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.*;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.io.FilenameUtils;
@@ -225,14 +226,15 @@ public class BulkDecompressor {
       byte[] buffer = new byte[100000000];
       try{
         SeekableByteChannel sek = u.open(GcsPath.fromUri(this.inputLocation.get()));
-        InputStream is;
-        is = Channels.newInputStream(sek);
-        BufferedInputStream bis = new BufferedInputStream(is);
+
 /*
   Check for zip or tar file types
  */
         String ext = FilenameUtils.getExtension(this.inputLocation.get());
         if (ext.equalsIgnoreCase("zip") ) {
+          InputStream is;
+          is = Channels.newInputStream(sek);
+          BufferedInputStream bis = new BufferedInputStream(is);
           ZipInputStream zis = new ZipInputStream(bis);
           ZipEntry ze = zis.getNextEntry();
           while(ze!=null){
@@ -250,7 +252,10 @@ public class BulkDecompressor {
           zis.closeEntry();
           zis.close();
         } else if(ext.equalsIgnoreCase("tar")) {
-          TarArchiveInputStream tis = new TarArchiveInputStream(bis);
+//          InputStream is;
+          FileInputStream is = (FileInputStream) Channels.newInputStream(sek);
+//          FileInputStream fis = new FileInputStream(is);
+          TarArchiveInputStream tis = new TarArchiveInputStream(is);
           TarArchiveEntry te = tis.getNextTarEntry();
           while(te!=null){
             LoggerFactory.getLogger("unzip").info("Unzipping File {}",te.getName());
