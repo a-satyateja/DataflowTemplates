@@ -17,13 +17,9 @@
 package com.google.cloud.teleport.templates;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 
 import java.io.*;
 import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Set;
@@ -36,27 +32,17 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
-import org.apache.beam.sdk.io.FileSystems;
-import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.fs.MatchResult;
-import org.apache.beam.sdk.io.fs.MoveOptions;
-import org.apache.beam.sdk.io.fs.ResolveOptions.StandardResolveOptions;
-import org.apache.beam.sdk.io.fs.ResourceId;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.util.GcsUtil;
-import org.apache.beam.sdk.util.MimeTypes;
 import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.*;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.QuoteMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,16 +150,6 @@ public class BulkDecompressor {
     ValueProvider<String> getOutputDirectory();
 
     void setOutputDirectory(ValueProvider<String> value);
-
-//    @Description(
-//        "The output file to write failures during the decompression process "
-//            + "(e.g. gs://bucket-name/decompressed/failed.txt). The contents will be one line for "
-//            + "each file which failed decompression. Note that this parameter will "
-//            + "allow the pipeline to continue processing in the event of a failure.")
-//    @Required
-//    ValueProvider<String> getOutputFailureFile();
-//
-//    void setOutputFailureFile(ValueProvider<String> value);
   }
 
   /**
@@ -207,9 +183,7 @@ public class BulkDecompressor {
 
     /*
      * Steps:
-     *   1) Find all files matching the input pattern
-     *   2) Decompress the files found and output them to the output directory
-     *   3) Write any errors to the failure output file
+     *   1) Decompress the input files found and output them to the output directory
      */
 
     // Create the pipeline
@@ -221,7 +195,7 @@ public class BulkDecompressor {
             .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
             .apply(
                 "DecompressFile(s)",
-                ParDo.of(new DecompressNew(options.getOutputDirectory())));
+                ParDo.of(new DecompressNew(options.getInputFilePattern(), options.getOutputDirectory())));
 
     return pipeline.run();
   }
@@ -231,116 +205,15 @@ public class BulkDecompressor {
    * object back to a specified destination location.
    */
   @SuppressWarnings("serial")
-//  public static class Decompress extends DoFn<MatchResult.Metadata, String> {
-//
-//    private final ValueProvider<String> destinationLocation;
-//
-//    Decompress(ValueProvider<String> destinationLocation) {
-//      this.destinationLocation = destinationLocation;
-//    }
-//
-//    @ProcessElement
-//    public void processElement(ProcessContext context) {
-//      String inputFile = context.element().resourceId().getFilename();
-//
-//      // Output a record to the failure file if the file doesn't match a known compression.
-//      if (!Compression.AUTO.isCompressed(inputFile.toString())) {
-//        String errorMsg =
-//            String.format(UNCOMPRESSED_ERROR_MSG, inputFile.toString(), SUPPORTED_COMPRESSIONS);
-//
-//        context.output(DEADLETTER_TAG, KV.of(inputFile.toString(), errorMsg));
-//      } else {
-//        try {
-//          ResourceId outputFile = decompress(inputFile);
-//          context.output(outputFile.toString());
-//        } catch (IOException e) {
-//          LOG.error(e.getMessage());
-//          context.output(DEADLETTER_TAG, KV.of(inputFile.toString(), e.getMessage()));
-//        }
-//      }
-//    }
-//
-//    /**
-//     * Decompresses the inputFile using the specified compression and outputs to the main output of
-//     * the {@link Decompress} doFn. Files output to the destination will be first written as temp
-//     * files with a "temp-" prefix within the output directory. If a file fails decompression, the
-//     * filename and the associated error will be output to the dead-letter.
-//     *
-//     * @param inputFile The inputFile to decompress.
-//     * @return A {@link ResourceId} which points to the resulting file from the decompression.
-//     */
-//    private ResourceId decompress(ResourceId inputFile) throws IOException {
-//      // Remove the compressed extension from the file. Example: demo.txt.gz -> demo.txt
-//      String outputFilename = Files.getNameWithoutExtension(inputFile.toString());
-//
-//      // Resolve the necessary resources to perform the transfer.
-//      ResourceId outputDir = FileSystems.matchNewResource(destinationLocation.get(), true);
-//      ResourceId outputFile =
-//          outputDir.resolve(outputFilename, StandardResolveOptions.RESOLVE_FILE);
-//      ResourceId tempFile =
-//          outputDir.resolve(Files.getFileExtension(inputFile.toString())
-//              + "-temp-" + outputFilename, StandardResolveOptions.RESOLVE_FILE);
-//
-//      // Resolve the compression
-//      Compression compression = Compression.detect(inputFile.toString());
-//
-//      // Perform the copy of the decompressed channel into the destination.
-//      try (ReadableByteChannel readerChannel =
-//          compression.readDecompressed(FileSystems.open(inputFile))) {
-//        try (WritableByteChannel writerChannel = FileSystems.create(tempFile, MimeTypes.TEXT)) {
-//          ByteStreams.copy(readerChannel, writerChannel);
-//        }
-//
-//        // Rename the temp file to the output file.
-//        FileSystems.rename(
-//            ImmutableList.of(tempFile),
-//            ImmutableList.of(outputFile),
-//            MoveOptions.StandardMoveOptions.IGNORE_MISSING_FILES);
-//      } catch (IOException e) {
-//        String msg = e.getMessage();
-//
-//        LOG.error("Error occurred during decompression of {}", inputFile.toString(), e);
-//        throw new IOException(sanitizeDecompressionErrorMsg(msg, inputFile, compression));
-//      }
-//
-//      return outputFile;
-//    }
-//
-//    /**
-//     * The error messages coming from the compression library are not consistent across compression
-//     * modes. Here we'll attempt to unify the messages to inform the user more clearly when we've
-//     * encountered a file which is not compressed or malformed. Note that GZIP and ZIP compression
-//     * modes will not throw an exception when a decompression is attempted on a file which is not
-//     * compressed.
-//     *
-//     * @param errorMsg The error message thrown during decompression.
-//     * @param inputFile The input file which failed decompression.
-//     * @param compression The compression mode used during decompression.
-//     * @return The sanitized error message. If the error was not from a malformed file, the same
-//     *     error message passed will be returned.
-//     */
-//    private String sanitizeDecompressionErrorMsg(
-//        String errorMsg, ResourceId inputFile, Compression compression) {
-//      if (errorMsg != null
-//          && (errorMsg.contains("not in the BZip2 format")
-//              || errorMsg.contains("incorrect header check"))) {
-//        errorMsg = String.format(MALFORMED_ERROR_MSG, inputFile.toString(), compression);
-//      }
-//
-//      return errorMsg;
-//    }
-//  }
-
-
-
-
   public static class DecompressNew extends DoFn<MatchResult.Metadata,Long>{
     private static final long serialVersionUID = 2015166770614756341L;
     private long filesUnzipped=0;
 
+    private final ValueProvider<String> inputLocation;
     private final ValueProvider<String> destinationLocation;
 
-    DecompressNew(ValueProvider<String> destinationLocation) {
+    DecompressNew(ValueProvider<String> inputLocation, ValueProvider<String> destinationLocation) {
+      this.inputLocation = inputLocation;
       this.destinationLocation = destinationLocation;
     }
 
@@ -351,17 +224,16 @@ public class BulkDecompressor {
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-        SeekableByteChannel sek = u.open(GcsPath.fromUri("gs://dataninja-bucket/zip_files/20020101/DESIGN/*.ZIP"));
+        SeekableByteChannel sek = u.open(GcsPath.fromUri(this.inputLocation.get()));
         InputStream is;
         is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
         ZipInputStream zis = new ZipInputStream(bis);
         ZipEntry ze = zis.getNextEntry();
         while(ze!=null){
-//          System.out.println("test test test");
           LOG.info("test test test ", this.destinationLocation);
-          LoggerFactory.getLogger("TTTTTTTTTTTTTTTT").info("Unzipping File {}",ze.getName());
-          WritableByteChannel wri = u.create(GcsPath.fromUri("gs://dataninja-bucket/zip_files/unzip/"+ ze.getName()), getType(ze.getName()));
+          LoggerFactory.getLogger("unzip").info("Unzipping File {}",ze.getName());
+          WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ ze.getName()), getType(ze.getName()));
           OutputStream os = Channels.newOutputStream(wri);
           int len;
           while((len=zis.read(buffer))>0){
