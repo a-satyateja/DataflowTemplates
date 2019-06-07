@@ -28,6 +28,8 @@ import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.Compression;
@@ -45,6 +47,7 @@ import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.io.FilenameUtils;
 
 /**
  * This pipeline decompresses file(s) from Google Cloud Storage and re-uploads them to a destination
@@ -113,18 +116,18 @@ public class BulkDecompressor {
    */
   @VisibleForTesting
   static final Set<Compression> SUPPORTED_COMPRESSIONS =
-      Stream.of(Compression.values())
-          .filter(value -> value != Compression.AUTO && value != Compression.UNCOMPRESSED)
-          .collect(Collectors.toSet());
+          Stream.of(Compression.values())
+                  .filter(value -> value != Compression.AUTO && value != Compression.UNCOMPRESSED)
+                  .collect(Collectors.toSet());
 
   /** The error msg given when the pipeline matches a file but cannot determine the compression. */
   @VisibleForTesting
   static final String UNCOMPRESSED_ERROR_MSG =
-      "Skipping file %s because it did not match any compression mode (%s)";
+          "Skipping file %s because it did not match any compression mode (%s)";
 
   @VisibleForTesting
   static final String MALFORMED_ERROR_MSG =
-      "The file resource %s is malformed or not in %s compressed format.";
+          "The file resource %s is malformed or not in %s compressed format.";
 
   /** The tag used to identify the main output of the {@link Decompress} DoFn. */
   @VisibleForTesting
@@ -161,9 +164,6 @@ public class BulkDecompressor {
    * @param args The command-line args passed by the executor.
    */
   public static void main(String[] args) {
-//    System.out.println("test test test");
-    LOG.info("test test test ");
-    LOG.info("main main main ");
 
     Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
 
@@ -191,11 +191,19 @@ public class BulkDecompressor {
 
     // Run the pipeline over the work items.
     PCollection<Long> decompressOut =
+<<<<<<< Updated upstream
         pipeline
             .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
             .apply(
                 "DecompressFile(s)",
                 ParDo.of(new DecompressNew(options.getInputFilePattern(), options.getOutputDirectory())));
+=======
+            pipeline
+                    .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
+                    .apply(
+                            "DecompressFile(s)",
+                            ParDo.of(new DecompressNew(options.getInputFilePattern(), options.getOutputDirectory())));
+>>>>>>> Stashed changes
 
     return pipeline.run();
   }
@@ -228,6 +236,7 @@ public class BulkDecompressor {
         InputStream is;
         is = Channels.newInputStream(sek);
         BufferedInputStream bis = new BufferedInputStream(is);
+<<<<<<< Updated upstream
         ZipInputStream zis = new ZipInputStream(bis);
         ZipEntry ze = zis.getNextEntry();
         while(ze!=null){
@@ -238,14 +247,50 @@ public class BulkDecompressor {
           int len;
           while((len=zis.read(buffer))>0){
             os.write(buffer,0,len);
-          }
-          os.close();
-          filesUnzipped++;
-          ze=zis.getNextEntry();
+=======
+/*
+  Check for zip or tar file types
+ */
+        String ext = FilenameUtils.getExtension(this.inputLocation.get());
+        if (ext == "zip") {
+          ZipInputStream zis = new ZipInputStream(bis);
+          ZipEntry ze = zis.getNextEntry();
+          while(ze!=null){
+            LoggerFactory.getLogger("unzip").info("Unzipping File {}",ze.getName());
+            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ ze.getName()), getType(ze.getName()));
+            OutputStream os = Channels.newOutputStream(wri);
+            int len;
+            while((len=zis.read(buffer))>0){
+              os.write(buffer,0,len);
+            }
+            os.close();
+            filesUnzipped++;
+            ze=zis.getNextEntry();
 
+>>>>>>> Stashed changes
+          }
+          zis.closeEntry();
+          zis.close();
+        } else if(ext == "tar") {
+          TarArchiveInputStream tis = new TarArchiveInputStream(bis);
+          TarArchiveEntry te = tis.getNextTarEntry();
+          while(te!=null){
+            LoggerFactory.getLogger("unzip").info("Unzipping File {}",te.getName());
+            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ te.getName()), getType(te.getName()));
+            OutputStream os = Channels.newOutputStream(wri);
+            int len;
+            while((len=tis.read(buffer))>0){
+              os.write(buffer,0,len);
+            }
+            os.close();
+            filesUnzipped++;
+            te=tis.getNextTarEntry();
+
+          }
+          tis.close();
         }
-        zis.closeEntry();
-        zis.close();
+
+
 
       }
       catch(Exception e){

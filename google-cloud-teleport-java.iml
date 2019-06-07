@@ -175,5 +175,6 @@
     <orderEntry type="library" scope="TEST" name="Maven: junit:junit:4.12" level="project" />
     <orderEntry type="library" name="Maven: com.google.cloud:google-cloud-dlp:0.79.0-beta" level="project" />
     <orderEntry type="library" name="Maven: com.google.api.grpc:proto-google-cloud-dlp-v2:0.44.0" level="project" />
+    <orderEntry type="library" name="Maven: commons-io:commons-io:2.5" level="project" />
   </component>
 </module>
