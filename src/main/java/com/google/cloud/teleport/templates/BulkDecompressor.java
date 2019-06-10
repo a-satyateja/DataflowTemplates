@@ -35,6 +35,7 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.fs.MatchResult;
+import org.apache.beam.sdk.io.fs.ResourceId;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -195,7 +196,7 @@ public class BulkDecompressor {
             .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
             .apply(
                 "DecompressFile(s)",
-                ParDo.of(new DecompressNew(options.getInputFilePattern(), options.getOutputDirectory())));
+                ParDo.of(new DecompressNew(options.getOutputDirectory())));
 
     return pipeline.run();
   }
@@ -209,28 +210,22 @@ public class BulkDecompressor {
     private static final long serialVersionUID = 2015166770614756341L;
     private long filesUnzipped=0;
 
-    private final ValueProvider<String> inputLocation;
     private final ValueProvider<String> destinationLocation;
 
-    DecompressNew(ValueProvider<String> inputLocation, ValueProvider<String> destinationLocation) {
-      this.inputLocation = inputLocation;
+    DecompressNew(ValueProvider<String> destinationLocation) {
       this.destinationLocation = destinationLocation;
     }
 
     @ProcessElement
     public void processElement(ProcessContext c){
-      String p = c.element().resourceId().getScheme();
+      String p = c.element().resourceId().toString();
       GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-        SeekableByteChannel sek = u.open(GcsPath.fromUri(this.inputLocation.get()));
-
-/*
-  Check for zip or tar file types
- */
-        String ext = FilenameUtils.getExtension(this.inputLocation.get());
-        if (ext.equalsIgnoreCase("zip") ) {
+//        SeekableByteChannel sek = u.open(GcsPath.fromUri(this.inputLocation.get()));
+        SeekableByteChannel sek = u.open(GcsPath.fromResourceName(p));
+//        String ext = FilenameUtils.getExtension(this.inputLocation.get());
           InputStream is;
           is = Channels.newInputStream(sek);
           BufferedInputStream bis = new BufferedInputStream(is);
@@ -250,26 +245,6 @@ public class BulkDecompressor {
           }
           zis.closeEntry();
           zis.close();
-        } else if(ext.equalsIgnoreCase("tar")) {
-          InputStream is;
-          is = Channels.newInputStream(sek);
-          BufferedInputStream bis = new BufferedInputStream(is);
-          TarArchiveInputStream tis = new TarArchiveInputStream(bis);
-          TarArchiveEntry te = tis.getNextTarEntry();
-          while(te!=null){
-            LoggerFactory.getLogger("unzip").info("Unzipping File {}",te.getName());
-            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ "untar" + te.getName()), getType(te.getName()));
-            OutputStream os = Channels.newOutputStream(wri);
-            int len;
-            while((len=tis.read(buffer))>0){
-              os.write(buffer,0,len);
-            }
-            os.close();
-            filesUnzipped++;
-            te=tis.getNextTarEntry();
-          }
-          tis.close();
-        }
       }
       catch(Exception e){
         e.printStackTrace();
