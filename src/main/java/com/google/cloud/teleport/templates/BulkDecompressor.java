@@ -218,6 +218,7 @@ public class BulkDecompressor {
     private static final long serialVersionUID = 2015166770614756341L;
     private long filesUnzipped=0;
     private String outp = "NA";
+    private List<List<GcsPath>> publishresults = new ArrayList<List<GcsPath>>();
 
     private final ValueProvider<String> destinationLocation;
 
@@ -239,7 +240,7 @@ public class BulkDecompressor {
           BufferedInputStream bis = new BufferedInputStream(is);
           ZipInputStream zis = new ZipInputStream(bis);
           ZipEntry ze = zis.getNextEntry();
-//        List<GcsPath> results = new ArrayList<>();
+
           while(ze!=null){
             LoggerFactory.getLogger("unzip").info("Unzipping File {}",ze.getName());
             WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ ze.getName()), getType(ze.getName()));
@@ -250,10 +251,12 @@ public class BulkDecompressor {
             }
             os.close();
             filesUnzipped++;
+            List<GcsPath> test = u.expand(GcsPath.fromUri(this.destinationLocation.get() + ze.getName() + "*.TIF"));
+            publishresults.add(test);
             ze=zis.getNextEntry();
           }
-          List<GcsPath> test = u.expand(GcsPath.fromUri(this.destinationLocation.get() + ze.getName() + "*.TIF"));
-          outp = test.toString();
+
+          outp = publishresults.toString();
           zis.closeEntry();
           zis.close();
       }
