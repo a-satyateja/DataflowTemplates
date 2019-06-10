@@ -27,9 +27,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
-import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.Compression;
@@ -48,8 +45,6 @@ import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.commons.io.FilenameUtils;
-
 /**
  * This pipeline decompresses file(s) from Google Cloud Storage and re-uploads them to a destination
  * location.
@@ -218,13 +213,12 @@ public class BulkDecompressor {
 
     @ProcessElement
     public void processElement(ProcessContext c){
-      String p = c.element().resourceId().toString();
+      ResourceId p = c.element().resourceId();
       GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
-//        SeekableByteChannel sek = u.open(GcsPath.fromUri(this.inputLocation.get()));
-        SeekableByteChannel sek = u.open(GcsPath.fromResourceName(p));
+        SeekableByteChannel sek = u.open(GcsPath.fromUri(p.toString()));
 //        String ext = FilenameUtils.getExtension(this.inputLocation.get());
           InputStream is;
           is = Channels.newInputStream(sek);
