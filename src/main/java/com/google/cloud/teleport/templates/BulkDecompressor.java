@@ -155,6 +155,12 @@ public class BulkDecompressor {
     ValueProvider<String> getOutputDirectory();
 
     void setOutputDirectory(ValueProvider<String> value);
+
+    @Description("The name of the topic which data should be published to. "
+            + "The name should be in the format of projects/<project-id>/topics/<topic-name>.")
+    @Required
+    ValueProvider<String> getOutputTopic();
+    void setOutputTopic(ValueProvider<String> value);
   }
 
   /**
@@ -198,7 +204,7 @@ public class BulkDecompressor {
             .apply(
                 "DecompressFile(s)",
                 ParDo.of(new DecompressNew(options.getOutputDirectory())))
-                .apply("Write to PubSub", PubsubIO.writeStrings().to("parent-unpack-done"));
+                .apply("Write to PubSub", PubsubIO.writeStrings().to(options.getOutputTopic()));
 
     return pipeline.run();
   }
