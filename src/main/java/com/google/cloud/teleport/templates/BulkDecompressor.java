@@ -22,6 +22,8 @@ import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -33,6 +35,7 @@ import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.fs.MatchResult;
 import org.apache.beam.sdk.io.fs.ResourceId;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -45,6 +48,9 @@ import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.beam.sdk.util.GcsUtil.*;
+
 /**
  * This pipeline decompresses file(s) from Google Cloud Storage and re-uploads them to a destination
  * location.
@@ -186,12 +192,13 @@ public class BulkDecompressor {
     Pipeline pipeline = Pipeline.create(options);
 
     // Run the pipeline over the work items.
-    PCollection<Long> decompressOut =
+
         pipeline
             .apply("MatchFile(s)", FileIO.match().filepattern(options.getInputFilePattern()))
             .apply(
                 "DecompressFile(s)",
-                ParDo.of(new DecompressNew(options.getOutputDirectory())));
+                ParDo.of(new DecompressNew(options.getOutputDirectory())))
+                .apply("Write to PubSub", PubsubIO.writeStrings().to("parent-unpack-done"));
 
     return pipeline.run();
   }
@@ -201,9 +208,10 @@ public class BulkDecompressor {
    * object back to a specified destination location.
    */
   @SuppressWarnings("serial")
-  public static class DecompressNew extends DoFn<MatchResult.Metadata,Long>{
+  public static class DecompressNew extends DoFn<MatchResult.Metadata,String>{
     private static final long serialVersionUID = 2015166770614756341L;
     private long filesUnzipped=0;
+    private String outp = "NA";
 
     private final ValueProvider<String> destinationLocation;
 
@@ -214,7 +222,7 @@ public class BulkDecompressor {
     @ProcessElement
     public void processElement(ProcessContext c){
       ResourceId p = c.element().resourceId();
-      GcsUtil.GcsUtilFactory factory = new GcsUtil.GcsUtilFactory();
+      GcsUtilFactory factory = new GcsUtilFactory();
       GcsUtil u = factory.create(c.getPipelineOptions());
       byte[] buffer = new byte[100000000];
       try{
@@ -225,6 +233,7 @@ public class BulkDecompressor {
           BufferedInputStream bis = new BufferedInputStream(is);
           ZipInputStream zis = new ZipInputStream(bis);
           ZipEntry ze = zis.getNextEntry();
+//        List<GcsPath> results = new ArrayList<>();
           while(ze!=null){
             LoggerFactory.getLogger("unzip").info("Unzipping File {}",ze.getName());
             WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ ze.getName()), getType(ze.getName()));
@@ -237,13 +246,17 @@ public class BulkDecompressor {
             filesUnzipped++;
             ze=zis.getNextEntry();
           }
+          List<GcsPath> test = u.expand(GcsPath.fromUri(this.destinationLocation.get() + ze.getName() + "*.TIF"));
+          outp = test.toString();
           zis.closeEntry();
           zis.close();
       }
       catch(Exception e){
         e.printStackTrace();
       }
-      c.output(filesUnzipped);
+
+//      c.output(filesUnzipped);
+      c.output(outp);
     }
 
     private String getType(String fName){
