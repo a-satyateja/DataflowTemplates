@@ -259,7 +259,7 @@ public class BulkDecompressor {
           TarArchiveEntry te = tis.getNextTarEntry();
           while(te!=null){
             LoggerFactory.getLogger("unzip").info("Unzipping File {}",te.getName());
-            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ "test" + te.getName()), getType(te.getName()));
+            WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ "untar" + te.getName()), getType(te.getName()));
             OutputStream os = Channels.newOutputStream(wri);
             int len;
             while((len=tis.read(buffer))>0){
