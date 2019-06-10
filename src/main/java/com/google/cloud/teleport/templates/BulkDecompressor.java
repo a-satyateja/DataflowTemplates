@@ -22,6 +22,7 @@ import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -217,7 +218,7 @@ public class BulkDecompressor {
     private static final long serialVersionUID = 2015166770614756341L;
     private long filesUnzipped=0;
     private String outp = "NA";
-    private List<List<GcsPath>> publishresults=null;
+    private List<List<GcsPath>> publishresults= new ArrayList<>();
 
     private final ValueProvider<String> destinationLocation;
 
