@@ -25,10 +25,13 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import com.google.cloud.pubsub.v1.Publisher;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+
+import com.google.pubsub.v1.ProjectTopicName;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.Compression;
@@ -48,6 +51,15 @@ import org.apache.beam.sdk.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.values.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
+import com.google.api.gax.rpc.ApiException;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.ByteString;
+import com.google.pubsub.v1.PubsubMessage;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.beam.sdk.util.GcsUtil.*;
 
@@ -218,7 +230,7 @@ public class BulkDecompressor {
     private static final long serialVersionUID = 2015166770614756341L;
     private long filesUnzipped=0;
     private String outp = "NA";
-    private List<List<GcsPath>> publishresults= new ArrayList<>();
+    private List<String> publishresults= new ArrayList<>();
 
     private final ValueProvider<String> destinationLocation;
 
@@ -240,7 +252,7 @@ public class BulkDecompressor {
           BufferedInputStream bis = new BufferedInputStream(is);
           ZipInputStream zis = new ZipInputStream(bis);
           ZipEntry ze = zis.getNextEntry();
-
+          ZipEntry lze = ze;
           while(ze!=null){
             LoggerFactory.getLogger("unzip").info("Unzipping File {}",ze.getName());
             WritableByteChannel wri = u.create(GcsPath.fromUri(this.destinationLocation.get()+ ze.getName()), getType(ze.getName()));
@@ -251,12 +263,16 @@ public class BulkDecompressor {
             }
             os.close();
             filesUnzipped++;
-            List<GcsPath> test = u.expand(GcsPath.fromUri(this.destinationLocation.get() + ze.getName()));
-            publishresults.add(test);
+
+//            publish(gcslist);
+//            String testString = test.toString();
+//            publishresults.add(testString);
+            lze = ze;
             ze=zis.getNextEntry();
           }
-
-          outp = publishresults.toString();
+        List<GcsPath> gcslist = u.expand(GcsPath.fromUri(this.destinationLocation.get() + lze.getName() + "*.TIF"));
+          outp = gcslist.toString();
+//          gcslist = (List<GcsPath>) outp;
           zis.closeEntry();
           zis.close();
       }
@@ -278,5 +294,61 @@ public class BulkDecompressor {
         return "text/plain";
       }
     }
+
+//    private String publish(List<GcsPath> messages) {
+//      ProjectTopicName topicName = ProjectTopicName.of("my-project-id", "my-topic-id");
+//      Publisher publisher = null;
+//
+//      try {
+//        // Create a publisher instance with default settings bound to the topic
+//        publisher = Publisher.newBuilder(topicName).build();
+//
+////        List<String> messages = Arrays.asList("first message", "second message");
+//
+//        for (final String message : messages) {
+//          ByteString data = ByteString.copyFromUtf8(message);
+//          PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(data).build();
+//
+//          // Once published, returns a server-assigned message id (unique within the topic)
+//          ApiFuture<String> future = publisher.publish(pubsubMessage);
+//
+//          // Add an asynchronous callback to handle success / failure
+//          ApiFutures.addCallback(
+//                  future,
+//                  new ApiFutureCallback<String>() {
+//
+//                    @Override
+//                    public void onFailure(Throwable throwable) {
+//                      if (throwable instanceof ApiException) {
+//                        ApiException apiException = ((ApiException) throwable);
+//                        // details on the API exception
+//                        System.out.println(apiException.getStatusCode().getCode());
+//                        System.out.println(apiException.isRetryable());
+//                      }
+//                      System.out.println("Error publishing message : " + message);
+//                    }
+//
+//                    @Override
+//                    public void onSuccess(String messageId) {
+//                      // Once published, returns server-assigned message ids (unique within the topic)
+//                      System.out.println(messageId);
+//                    }
+//                  },
+//                  MoreExecutors.directExecutor());
+//        }
+//      } catch (IOException e) {
+//        e.printStackTrace();
+//      } finally {
+//        if (publisher != null) {
+//          // When finished with the publisher, shutdown to free up resources.
+//          publisher.shutdown();
+//          try {
+//            publisher.awaitTermination(1, TimeUnit.MINUTES);
+//          } catch (InterruptedException e) {
+//            e.printStackTrace();
+//          }
+//        }
+//      }
+//    }
   }
 }
