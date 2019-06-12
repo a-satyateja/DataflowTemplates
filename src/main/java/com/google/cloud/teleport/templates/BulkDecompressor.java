@@ -270,6 +270,7 @@ public class BulkDecompressor {
 //        List<GcsPath> gcslist = u.expand(GcsPath.fromUri(this.destinationLocation.get() + lze.getName() + "/*.TIF"));
 //          outp = gcslist.toString()+ "test" + lze.toString();
           outp = publishresults.toString();
+          publishresults.clear();
           zis.closeEntry();
           zis.close();
       }
