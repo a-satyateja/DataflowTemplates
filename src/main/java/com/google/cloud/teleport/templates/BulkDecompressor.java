@@ -231,6 +231,7 @@ public class BulkDecompressor {
     private long filesUnzipped=0;
     private String outp = "NA";
     private List<String> publishresults= new ArrayList<>();
+    private List<String> res=new ArrayList<>();
 
     private final ValueProvider<String> destinationLocation;
 
@@ -269,8 +270,13 @@ public class BulkDecompressor {
           }
 //        List<GcsPath> gcslist = u.expand(GcsPath.fromUri(this.destinationLocation.get() + lze.getName() + "/*.TIF"));
 //          outp = gcslist.toString()+ "test" + lze.toString();
-          outp = publishresults.toString();
+
+        for (String path: publishresults){
+          res.add('"'+path+'"');
+        }
+          outp = res.toString();
           publishresults.clear();
+          res.clear();
           zis.closeEntry();
           zis.close();
       }
