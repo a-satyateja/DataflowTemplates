@@ -263,16 +263,13 @@ public class BulkDecompressor {
             }
             os.close();
             filesUnzipped++;
-
-//            publish(gcslist);
-//            String testString = test.toString();
-//            publishresults.add(testString);
-            lze = ze;
+            publishresults.add(this.destinationLocation.get()+ze.getName());
+//            lze = ze;
             ze=zis.getNextEntry();
           }
-        List<GcsPath> gcslist = u.expand(GcsPath.fromUri(this.destinationLocation.get() + lze.getName() + "/*.TIF"));
-          outp = gcslist.toString()+ "test" + lze.toString();
-//          gcslist = (List<GcsPath>) outp;
+//        List<GcsPath> gcslist = u.expand(GcsPath.fromUri(this.destinationLocation.get() + lze.getName() + "/*.TIF"));
+//          outp = gcslist.toString()+ "test" + lze.toString();
+          outp = publishresults.toString();
           zis.closeEntry();
           zis.close();
       }
